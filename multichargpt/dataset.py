@@ -18,8 +18,7 @@ class ShakespeareDataset(Dataset):
         self.tokenizer.fit(data)
         self.encoded_data = self.tokenizer.encode(data)
 
-    def __getitem__(self, index) -> Tensor:
-        ...
+    def __getitem__(self, index) -> Tensor: ...
 
 
 # Basic data handling functionality - for the initial implementation

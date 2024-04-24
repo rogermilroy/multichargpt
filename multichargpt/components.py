@@ -10,13 +10,16 @@ class SinCosPositionEncoding(nn.Module):
         super().__init__()
         # generate the positional encoding to select from
         self.encoding = nn.Embedding.from_pretrained(
-                self.get_sin_cos_embeddings(context_size=context_size, embed_size=embed_size))
+            self.get_sin_cos_embeddings(
+                context_size=context_size, embed_size=embed_size
+            )
+        )
 
     @staticmethod
     def get_sin_cos_embeddings(context_size, embed_size) -> torch.Tensor:
         emb = torch.zeros(context_size, embed_size, requires_grad=False)
         pos = torch.arange(context_size, requires_grad=False)
-        for i in range(embed_size//2):
+        for i in range(embed_size // 2):
             emb[:, 2 * i] = torch.sin(pos / 10000 ** (2 * i / embed_size))
             emb[:, 2 * i + 1] = torch.cos(pos / 10000 ** (2 * i / embed_size))
         return emb
@@ -122,18 +125,18 @@ class MultiHeadAttention(nn.Module):
 
 
 class FeedforwardNet(nn.Module):
-    def __init__(self, embed_size: int, hidden_size: int, dropout: Optional[float] = None):
+    def __init__(
+        self, embed_size: int, hidden_size: int, dropout: Optional[float] = None
+    ):
         super().__init__()
         ff_args = [
             nn.Linear(in_features=embed_size, out_features=hidden_size),
             nn.ReLU(),
             nn.Linear(in_features=hidden_size, out_features=embed_size),
-            ]
+        ]
         # add dropout if configured
         if dropout:
-            ff_args.append(
-                nn.Dropout(p=dropout)
-            )
+            ff_args.append(nn.Dropout(p=dropout))
         self.net = nn.Sequential(*ff_args)
 
     def forward(self, x):
@@ -175,8 +178,6 @@ class TransformerBlock(nn.Module):
         return out
 
 
-
-
 if __name__ == "__main__":
     torch.manual_seed(42)
 
@@ -192,4 +193,3 @@ if __name__ == "__main__":
 
     x = torch.randn(2, 4, 6)  # (B, T, C)
     n_chunks = 3
-

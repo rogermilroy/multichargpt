@@ -42,7 +42,6 @@ class BigramLanguageModel(nn.Module):
         return x
 
 
-
 class TransformerMultiBlockLanguageModel(nn.Module):
     # B: batch size
     # T: time dimension - context_len
@@ -87,12 +86,13 @@ class TransformerMultiBlockLanguageModel(nn.Module):
             self.position_embedding = nn.Embedding(context_size, embed_size)
         elif pos_embedding == "sin_cos":
             self.position_embedding = SinCosPositionEncoding(
-                context_size=context_size,
-                embed_size=embed_size
+                context_size=context_size, embed_size=embed_size
             )
         else:
-            raise ValueError(f"pos_embedding must be one of 'learned' or 'sin_cos' "
-                             f"found: {pos_embedding}")
+            raise ValueError(
+                f"pos_embedding must be one of 'learned' or 'sin_cos' "
+                f"found: {pos_embedding}"
+            )
         self.transformer_blocks = nn.Sequential(
             *[
                 TransformerBlock(

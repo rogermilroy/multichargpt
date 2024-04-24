@@ -31,14 +31,14 @@ def evaluate(model, tokenizer, device, num_tokens):
 
 def setup_evaluation(checkpoint_dir: Path, checkpoint: str):
 
-    config: DictConfig = OmegaConf.load(checkpoint_dir / ".hydra" / "config.yaml") # type: ignore
+    config: DictConfig = OmegaConf.load(checkpoint_dir / ".hydra" / "config.yaml")  # type: ignore
     # device = available_device() if config["device"] == "available" else config[
     #     "device"]
     device = torch.device("cpu")
     tok = IndexTokenizer()
     data_filename = os.path.join(
-        project_base_dir, f"{config['data']['data_dir']}/"
-                          f"{config['data']['data_filename']}"
+        project_base_dir,
+        f"{config['data']['data_dir']}/" f"{config['data']['data_filename']}",
     )
 
     _ = BasicShakespeareDataset(
@@ -55,9 +55,7 @@ def setup_evaluation(checkpoint_dir: Path, checkpoint: str):
         **config["model"],
     )
 
-    checkpoint_dict: Dict = torch.load(
-        checkpoint_dir / "checkpoints" / checkpoint
-    )
+    checkpoint_dict: Dict = torch.load(checkpoint_dir / "checkpoints" / checkpoint)
 
     model.load_state_dict(checkpoint_dict["model_state_dict"])
     model.to(device=device)
@@ -65,7 +63,7 @@ def setup_evaluation(checkpoint_dir: Path, checkpoint: str):
     return model, tok, device
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     torch.manual_seed(45)
 
@@ -73,8 +71,9 @@ if __name__ == '__main__':
     #                                    "multirun/2023-08-21/16-51-53/0/"))
     # checkpoint = "final.pt"
 
-    checkpoint_dir = Path(os.path.join(project_base_dir,
-                                       "multirun/2023-08-21/16-51-53/1/"))
+    checkpoint_dir = Path(
+        os.path.join(project_base_dir, "multirun/2023-08-21/16-51-53/1/")
+    )
     checkpoint = "checkpoint_7000.pt"
 
     # num_tokens = 256

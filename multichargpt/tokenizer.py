@@ -1,6 +1,7 @@
 """
 Tokenizer - initially just the simplest possible char level tokenizer.
 """
+
 from abc import ABC, abstractmethod
 from typing import List
 import torch
@@ -22,16 +23,13 @@ class Tokenizer(ABC):
     vocab_size: int
 
     @abstractmethod
-    def fit(self, data):
-        ...
+    def fit(self, data): ...
 
     @abstractmethod
-    def encode(self, string: str) -> Tensor:
-        ...
+    def encode(self, string: str) -> Tensor: ...
 
     @abstractmethod
-    def decode(self, tokens: Tensor) -> str:
-        ...
+    def decode(self, tokens: Tensor) -> str: ...
 
 
 class IndexTokenizer(Tokenizer):

@@ -36,5 +36,5 @@ def train_language_model(
                 loss=loss,
                 losses=losses,
             )
-    assert loss  # assert loss is not None for type hints
+    assert loss  # assert loss is not None for type hints #nosec
     return model, loss.item(), losses
