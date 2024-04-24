@@ -178,6 +178,36 @@ class TransformerBlock(nn.Module):
         return out
 
 
+class ChunkStackLinear(nn.Module):
+
+    def __init__(self, in_features: int, out_features: int, chunk_size: int) -> None:
+        super().__init__()
+        self.lins = [
+            nn.Linear(in_features=in_features, out_features=out_features)
+            for _ in range(chunk_size)
+        ]
+
+    def forward(self, x):
+        # one option is n Linear and stack the outputs
+        n_dims = len(x.shape)
+        output = torch.stack([lin(x) for lin in self.lins], dim=n_dims - 1)
+        return output
+
+
+class ChunkCatLinear(nn.Module):
+
+    def __init__(self, in_features: int, out_features: int, chunk_size: int) -> None:
+        super().__init__()
+        self.lin = nn.Linear(
+            in_features=in_features, out_features=out_features * chunk_size
+        )
+
+    def forward(self, x):
+        # other option is Linear with n_chunks * out_features as the output dim.
+        output = self.lin(x)
+        return output
+
+
 if __name__ == "__main__":
     torch.manual_seed(42)
 
@@ -193,3 +223,12 @@ if __name__ == "__main__":
 
     x = torch.randn(2, 4, 6)  # (B, T, C)
     n_chunks = 3
+
+    stacked = ChunkStackLinear(in_features=6, out_features=7, chunk_size=n_chunks)
+
+    catted = ChunkCatLinear(in_features=6, out_features=7, chunk_size=n_chunks)
+
+    s = stacked(x)
+    print(s)
+    c = catted(x)
+    print(c)
