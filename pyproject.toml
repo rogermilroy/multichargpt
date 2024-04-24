@@ -1,0 +1,42 @@
+[tool.black]
+line-length = 88
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+
+[tool.poetry]
+name = "multichargpt"
+version = "0.1.0"
+description = "A simple character transformer project to experiment with extending autoregression to chunked outputs."
+authors = ["Roger Milroy <rogermilroy@icloud.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+torch = "^2"
+numpy = "^1.24"
+tqdm = "^4.65.0"
+hydra-core = "^1.3"
+jupyter = "^1.0.0"
+matplotlib = "^3.7.1"
+
+
+
+[tool.poetry.group.dev.dependencies]
+pandas = "^2.2.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
