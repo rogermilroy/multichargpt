@@ -5,7 +5,7 @@ import torch
 from torch import Tensor
 from torch.utils.data import Dataset
 
-from tokenizer import Tokenizer, IndexTokenizer
+from multichargpt.tokenizer import Tokenizer, IndexTokenizer
 
 project_base_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -34,7 +34,8 @@ class BasicShakespeareDataset:
         context_size: int,
         batch_size: int,
         val_proportion: float,
-        device="cpu",
+        chunk_size: int = 1,
+        device: str | torch.device = "cpu",
         **kwargs,
     ):
         """
@@ -61,6 +62,7 @@ class BasicShakespeareDataset:
             : round(len(encoded_data) * (1 - val_proportion))
         ]
         self.val_data = encoded_data[round(len(encoded_data) * val_proportion) + 1 :]
+        self.chunk_size = chunk_size
 
     def get_batch(self, split: str) -> Tuple[Tensor, Tensor]:
         """
@@ -81,7 +83,9 @@ class BasicShakespeareDataset:
         )
         y = torch.stack(
             [
-                split_dataset_map[split][idx + 1 : idx + self.context_len + 1]
+                split_dataset_map[split][
+                    idx + self.chunk_size : idx + self.context_len + self.chunk_size
+                ]
                 for idx in indices
             ]
         )
@@ -92,6 +96,7 @@ if __name__ == "__main__":
     data_filename = os.path.join(project_base_dir, "data/input.txt")
     tokenizer = IndexTokenizer()
     context_len = 8
+    chunk_size = 2
     batch_size = 4
     val_proportion = 0.1
 
@@ -101,6 +106,7 @@ if __name__ == "__main__":
         context_size=context_len,
         batch_size=batch_size,
         val_proportion=val_proportion,
+        chunk_size=chunk_size,
     )
     x, y = dataset.get_batch(split="train")
 
@@ -111,5 +117,5 @@ if __name__ == "__main__":
     for b in range(batch_size):
         for t in range(context_len):
             context = x[b][: t + 1]
-            target = y[b][t]
+            target = y[b][t : t + chunk_size]
             print(f"Context: {context}, target: {target}")

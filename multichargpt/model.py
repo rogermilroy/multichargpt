@@ -47,8 +47,10 @@ class BigramLanguageModel(nn.Module):
 class TransformerMultiBlockLanguageModel(nn.Module):
     # B: batch size
     # T: time dimension - context_len
-    # C: channels - n_embed (or head size of previous layer)
+    # E: embed_size
     # H: head dimension - head_size
+    # N: num heads
+    # Ch: chunk_size - number of tokens per chunk
 
     def __init__(
         self,
@@ -116,8 +118,8 @@ class TransformerMultiBlockLanguageModel(nn.Module):
         # this time we will add the residual connections and norm layers
         # x is (B, T)
         _, t = x.shape
-        x = self.token_embedding(x)  # (B, T, C)
-        pos = self.position_embedding(torch.arange(t, device=x.device))  # (T, C)
+        x = self.token_embedding(x)  # (B, T, E)
+        pos = self.position_embedding(torch.arange(t, device=x.device))  # (T, E)
         x = x + pos
         x = self.transformer_blocks(x)
         x = self.layer_norm(x)
@@ -135,9 +137,9 @@ class TransformerMultiBlockLanguageModel(nn.Module):
             # left trim x to be last n_context tokens
             x_trim = x[:, -self.context_size :]
 
-            logits = self(x_trim)  # logits (B, T, C) C is output options
+            logits = self(x_trim)  # logits (B, T, E) E is output options
 
-            logits = logits[:, -1, :]  # select last time step from logits (B, 1, C)
+            logits = logits[:, -1, :]  # select last time step from logits (B, 1, E)
             probs = F.softmax(logits, dim=-1)  # logits to probs
             x_next = torch.multinomial(
                 probs, num_samples=1
@@ -150,9 +152,10 @@ class TransformerMultiBlockLanguageModel(nn.Module):
 class TransformerFixedLookahead(nn.Module):
     # B: batch size
     # T: time dimension - context_len
-    # C: channels - n_embed (or head size of previous layer)
+    # E: embed_size
     # H: head dimension - head_size
-    # CS: chunk_size
+    # N: num heads
+    # Ch: chunk_size - number of tokens per chunk
 
     def __init__(
         self,
@@ -234,17 +237,17 @@ class TransformerFixedLookahead(nn.Module):
         # this time we will add the residual connections and norm layers
         # x is (B, T)
         _, t = x.shape
-        x = self.token_embedding(x)  # (B, T, C)
-        pos = self.position_embedding(torch.arange(t, device=x.device))  # (T, C)
-        x = x + pos  # (B, T, C)
-        x = self.transformer_blocks(x)  # (B, T, C)
-        x = self.layer_norm(x)  # (B, T, C)
-        out = self.output_layer(x)  # (B, T, Ch, C)
+        x = self.token_embedding(x)  # (B, T, E)
+        pos = self.position_embedding(torch.arange(t, device=x.device))  # (T, E)
+        x = x + pos  # (B, T, E)
+        x = self.transformer_blocks(x)  # (B, T, E)
+        x = self.layer_norm(x)  # (B, T, E)
+        out = self.output_layer(x)  # (B, T, Ch, E)
         return out
 
     def _stacked_loss(self, logits, targets):
         b, t, ch, c = logits.shape
-        logits = logits.view((b * t * ch, c))  # logits will be (B, T, Ch, C)
+        logits = logits.view((b * t * ch, c))  # logits will be (B, T, Ch, E)
         targets = targets.view(b * t * ch)  # targets will be (B, T, Ch) initially
         return F.cross_entropy(logits, targets)
 
@@ -252,7 +255,7 @@ class TransformerFixedLookahead(nn.Module):
         b, t, c_by_ch = logits.shape
         logits = logits.view(
             (b * t * self.chunk_size, c_by_ch // self.chunk_size)
-        )  # (B, T, Ch * C)
+        )  # (B, T, Ch * E)
         targets = targets.view(
             b * t * self.chunk_size
         )  # targets will be (B, T, Ch) initially
@@ -271,17 +274,17 @@ class TransformerFixedLookahead(nn.Module):
             # left trim x to be last n_context tokens
             x_trim = x[:, -self.context_size :]
 
-            logits = self(x_trim)  # logits (B, T, C) C is output options
+            logits = self(x_trim)  # logits (B, T, E) E is output dim
 
             logits = logits[
                 :, -self.chunk_size :, :
-            ]  # select last time step from logits (B, CS, C)
+            ]  # select last time step from logits (B, Ch, E)
             probs = F.softmax(
                 logits, dim=-1
             )  # logits to probs - TODO check dims of this
             x_next = torch.multinomial(
                 probs.squeeze(), num_samples=1  # TODO change this to chunk_size?
-            )  # select one from probs (B, CS, 1) TODO check it selects one per time step as needed
+            )  # select one from probs (B, Ch, 1) TODO check it selects one per time step as needed
 
-            x = torch.cat((x, x_next.T), dim=1)  # (B, T + CS, 1)
+            x = torch.cat((x, x_next.T), dim=1)  # (B, T + Ch, 1)
         return x

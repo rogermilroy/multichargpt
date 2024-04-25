@@ -12,3 +12,20 @@ There are two options for this:
     This should be learnable by an MLP (add to the end of the transformer blocks but before the output layer) but it may need to be larger/more complex for this. Probably no need to change the Transformer blocks.
 
 I will try both.
+
+## Fixed lookahead
+
+There are actually at least 2 different ways to implement a fixed lookahead model.
+
+1. Expand the output dimensions so that there are n outputs per timestep. Going from (B, T, E) -> (B, T, Ch, E) where E is the embedding (ie output) dimension and Ch is the chunk size (ie. how many tokens per prediction).
+    1. The key issue with this is it N times's the number of parameters (in the output layer) and increases computation. Also it complicates inference to some extent. It might still be tolerable though.
+    2. Should work okay but needs some testing of shapes and functions including the loss to make sure it makes sense.
+2. Increase the offset to predict - currently the output sequence is offset by 1. Increase to n across the whole sequence.
+    1. This is the easies to accomplish I think but there are questions as to whether the model will learn just to predict 3 ahead. I think that because of the shape of the output it should predict the entire chunk (just maybe with less information..)
+
+
+Initially I will start with low numbers for Ch and I will omit any special tokens to keep it simple and try and verify convergence and performance scaling. When we get to larger values of Ch I will need to add special characters to allow responses that are shorter than Ch.
+
+## Variable lookahead
+
+ \# todo

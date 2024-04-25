@@ -31,8 +31,9 @@ class SinCosPositionEncoding(nn.Module):
 class AttentionHead(nn.Module):
     # B: batch size
     # T: time dimension - context_len
-    # C: channels - n_embed (or head size of previous layer)
+    # E: embed_size
     # H: head dimension - head_size
+    # N: num heads
 
     def __init__(
         self,
@@ -45,9 +46,9 @@ class AttentionHead(nn.Module):
         super().__init__()
         self.head_size = head_size  # H
         self.decoder = decoder
-        self.query = nn.Linear(embed_size, head_size, bias=False)  # (C, H)
-        self.key = nn.Linear(embed_size, head_size, bias=False)  # (C, H)
-        self.value = nn.Linear(embed_size, head_size, bias=False)  # (C, H)
+        self.query = nn.Linear(embed_size, head_size, bias=False)  # (E, H)
+        self.key = nn.Linear(embed_size, head_size, bias=False)  # (E, H)
+        self.value = nn.Linear(embed_size, head_size, bias=False)  # (E, H)
         self.register_buffer(
             "mask", torch.tril(torch.ones(context_size, context_size))
         )  # (T, T)
@@ -80,7 +81,7 @@ class AttentionHead(nn.Module):
 class MultiHeadAttention(nn.Module):
     # B: batch size
     # T: time dimension - context_len
-    # C: channels - embed_size (or head size of previous layer)
+    # E: embed_size
     # H: head dimension - head_size
     # N: num heads
 
@@ -118,7 +119,7 @@ class MultiHeadAttention(nn.Module):
 
     def forward(self, x):
         x = torch.cat([head(x) for head in self.heads], dim=-1)  # (B, T, H * N)
-        x = self.out_layer(x)  # (B, T, C)
+        x = self.out_layer(x)  # (B, T, E)
         if self.dropout:
             x = self.dropout(x)
         return x
@@ -221,7 +222,7 @@ if __name__ == "__main__":
     )
     print(multi_head(x_multi))
 
-    x = torch.randn(2, 4, 6)  # (B, T, C)
+    x = torch.randn(2, 4, 6)  # (B, T, E)
     n_chunks = 3
 
     stacked = ChunkStackLinear(in_features=6, out_features=7, chunk_size=n_chunks)
