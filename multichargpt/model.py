@@ -1,5 +1,8 @@
+from typing import Any
 import torch
-from torch import nn
+
+from abc import ABC, abstractmethod
+from torch import Tensor, nn
 from torch.nn import functional as F
 
 from components import (
@@ -10,8 +13,22 @@ from components import (
 )
 
 
-# TODO create a better base class/interface than this.
-class BigramLanguageModel(nn.Module):
+class LanguageModel(ABC):
+
+    @abstractmethod
+    def forward(self, *args, **kwargs) -> Tensor: ...
+
+    @abstractmethod
+    def loss(self, logits: Any, targets: Any) -> Tensor: ...
+
+    @abstractmethod
+    def generate(self, *args, **kwargs) -> Tensor: ...
+
+
+class TorchLanguageModel(nn.Module, LanguageModel): ...
+
+
+class BigramLanguageModel(TorchLanguageModel):
     def __init__(self, vocab_size):
         super().__init__()
         # vocab_size x vocab_size table (direct probs for each char based on
@@ -44,7 +61,7 @@ class BigramLanguageModel(nn.Module):
         return x
 
 
-class TransformerMultiBlockLanguageModel(nn.Module):
+class TransformerMultiBlockLanguageModel(TorchLanguageModel):
     # B: batch size
     # T: time dimension - context_len
     # E: embed_size
@@ -149,7 +166,7 @@ class TransformerMultiBlockLanguageModel(nn.Module):
         return x
 
 
-class TransformerFixedLookahead(nn.Module):
+class TransformerFixedLookahead(TorchLanguageModel):
     # B: batch size
     # T: time dimension - context_len
     # E: embed_size

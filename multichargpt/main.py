@@ -9,7 +9,7 @@ from omegaconf import DictConfig
 from multichargpt.dataset import BasicShakespeareDataset
 from multichargpt.hooks import Validate, Checkpoint
 from model import (
-    BigramLanguageModel,
+    TorchLanguageModel,
     TransformerFixedLookahead,
     TransformerMultiBlockLanguageModel,
 )
@@ -33,7 +33,7 @@ def available_device() -> str:
 
 @torch.no_grad()
 def evaluate_val(
-    model: BigramLanguageModel, dataset: BasicShakespeareDataset, eval_iters
+    model: TorchLanguageModel, dataset: BasicShakespeareDataset, eval_iters
 ):
     model.eval()
 
@@ -53,6 +53,12 @@ def evaluate_val(
 
 @hydra.main(version_base=None, config_path="config", config_name="config")
 def run_training(cfg: DictConfig):
+
+    models = {
+        "fixed_lookahead": TransformerFixedLookahead,
+        "single_lookahead": TransformerMultiBlockLanguageModel,
+    }
+
     out_dir = HydraConfig.get().runtime.output_dir
     logger.debug(
         f"CWD: {os.getcwd()}, project root: {project_base_dir}, output_dir: "

@@ -23,7 +23,6 @@ There are actually at least 2 different ways to implement a fixed lookahead mode
 2. Increase the offset to predict - currently the output sequence is offset by 1. Increase to n across the whole sequence.
     1. This is the easies to accomplish I think but there are questions as to whether the model will learn just to predict 3 ahead. I think that because of the shape of the output it should predict the entire chunk (just maybe with less information..)
 
-
 Initially I will start with low numbers for Ch and I will omit any special tokens to keep it simple and try and verify convergence and performance scaling. When we get to larger values of Ch I will need to add special characters to allow responses that are shorter than Ch.
 
 ## Variable lookahead
