@@ -47,8 +47,8 @@ class BigramLanguageModel(TorchLanguageModel):
         targets = targets.view(b * t)
         return F.cross_entropy(logits, targets)
 
-    def generate(self, x, max_new_tokens):
-        for _ in range(max_new_tokens):
+    def generate(self, x, generate_limit: int):
+        for _ in range(generate_limit):
             logits = self(x)  # logits (B, T, C) C is output options
 
             logits = logits[:, -1, :]  # select last time step from logits (B, 1, C)
@@ -80,6 +80,7 @@ class TransformerMultiBlockLanguageModel(TorchLanguageModel):
         n_blocks,
         dropout,
         pos_embedding="sin_cos",
+        **kwargs,
     ):
         """
         Creates a Multi Block Transformer model. That is a stack of MultiHeadAttention
@@ -149,8 +150,8 @@ class TransformerMultiBlockLanguageModel(TorchLanguageModel):
         targets = targets.view(b * t)
         return F.cross_entropy(logits, targets)
 
-    def generate(self, x, max_new_tokens):
-        for _ in range(max_new_tokens):
+    def generate(self, x, generate_limit: int):
+        for _ in range(generate_limit):
             # left trim x to be last n_context tokens
             x_trim = x[:, -self.context_size :]
 
@@ -259,16 +260,16 @@ class TransformerFixedLookahead(TorchLanguageModel):
         x = x + pos  # (B, T, E)
         x = self.transformer_blocks(x)  # (B, T, E)
         x = self.layer_norm(x)  # (B, T, E)
-        out = self.output_layer(x)  # (B, T, Ch, E)
+        out = self.output_layer(x)  # (B, T, Ch, E) if stacked (B, T, Ch * E) if cat
         return out
 
-    def _stacked_loss(self, logits, targets):
+    def _reshape_stacked_logit_target(self, logits, targets):
         b, t, ch, c = logits.shape
         logits = logits.view((b * t * ch, c))  # logits will be (B, T, Ch, E)
         targets = targets.view(b * t * ch)  # targets will be (B, T, Ch) initially
-        return F.cross_entropy(logits, targets)
+        return logits, targets
 
-    def _catted_loss(self, logits, targets):
+    def _reshape_catted_logit_target(self, logits, targets):
         b, t, c_by_ch = logits.shape
         logits = logits.view(
             (b * t * self.chunk_size, c_by_ch // self.chunk_size)
@@ -276,25 +277,33 @@ class TransformerFixedLookahead(TorchLanguageModel):
         targets = targets.view(
             b * t * self.chunk_size
         )  # targets will be (B, T, Ch) initially
-        return F.cross_entropy(logits, targets)
+        return logits, targets
 
     def loss(self, logits, targets):
-        # TODO refactor to just process logits and targets - after testing this works correctly.
         if self.chunk_method == "cat":
-            return self._catted_loss(logits=logits, targets=targets)
+            logits, targets = self._reshape_catted_logit_target(
+                logits=logits, targets=targets
+            )
         elif self.chunk_method == "stack":
-            return self._stacked_loss(logits=logits, targets=targets)
-        # return F.cross_entropy(logits, targets)  # TODO restore when refactored.
+            logits, targets = self._reshape_stacked_logit_target(
+                logits=logits, targets=targets
+            )
+        return F.cross_entropy(logits, targets)
 
-    def generate(self, x, max_new_chunks):
-        for _ in range(max_new_chunks):
+    def generate(self, x, generate_limit: int):
+        for _ in range(generate_limit):
             # left trim x to be last n_context tokens
             x_trim = x[:, -self.context_size :]
 
-            logits = self(x_trim)  # logits (B, T, E) E is output dim
+            logits = self(x_trim)  # logits (B, T, Ch, E) if stack (B, T, Ch * E) if cat
+            if self.chunk_method == "cat":
+                b, t, c_by_ch = logits.shape
+                logits = logits.view(
+                    (b, t, self.chunk_size, c_by_ch // self.chunk_size)
+                )  # (B, T, Ch, E)
 
             logits = logits[
-                :, -self.chunk_size :, :
+                :, -1:, :, :
             ]  # select last time step from logits (B, Ch, E)
             probs = F.softmax(
                 logits, dim=-1
