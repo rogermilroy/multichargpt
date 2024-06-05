@@ -55,8 +55,8 @@ def evaluate_val(
 def run_training(cfg: DictConfig):
 
     models = {
-        "fixed_lookahead": TransformerFixedLookahead,
-        "single_lookahead": TransformerMultiBlockLanguageModel,
+        "chunked": TransformerFixedLookahead,
+        "standard": TransformerMultiBlockLanguageModel,
     }
 
     out_dir = HydraConfig.get().runtime.output_dir
@@ -77,15 +77,13 @@ def run_training(cfg: DictConfig):
         filename=data_filename,
         tokenizer=tok,
         device=device,
-        context_size=cfg["context_size"],
-        chunk_size=cfg["chunk_size"],
+        **cfg["shared"],
         **cfg["data"],
     )
 
-    model = TransformerFixedLookahead(
+    model = models[cfg["model_type"]](
         vocab_size=tok.vocab_size,
-        context_size=cfg["context_size"],
-        chunk_size=cfg["chunk_size"],
+        **cfg["shared"],
         **cfg["model"],
     )
     model.to(device)
@@ -106,11 +104,13 @@ def run_training(cfg: DictConfig):
         optimizer = torch.optim.AdamW(params=model.parameters(), **cfg["optimizer"])
 
     #### Before sample #####
-    inputs = torch.zeros((1, cfg["chunk_size"]), dtype=torch.long, device=device)
+    inputs = torch.zeros(
+        (1, cfg["shared"]["chunk_size"]), dtype=torch.long, device=device
+    )
     model.eval()
     logger.info(
         f"\n##### Before #####\n"
-        f"{tok.decode(model.generate(inputs, max_new_chunks=200)[0])}"
+        f"{tok.decode(model.generate(inputs, generate_limit=200)[0])}"
         f"\n##### Before #####"
     )
     #### Before sample #####
@@ -151,11 +151,13 @@ def run_training(cfg: DictConfig):
     logger.info(f"Final Loss: {final_loss}")
 
     #### After sample #####
-    inputs = torch.zeros((1, cfg["chunk_size"]), dtype=torch.long, device=device)
+    inputs = torch.zeros(
+        (1, cfg["shared"]["chunk_size"]), dtype=torch.long, device=device
+    )
     trained_model.eval()
     logger.info(
         f"\n##### After #####\n"
-        f"{tok.decode(trained_model.generate(inputs, max_new_chunks=200)[0])}"
+        f"{tok.decode(trained_model.generate(inputs, generate_limit=200)[0])}"
         f"\n##### After #####"
     )
     #### After sample #####
