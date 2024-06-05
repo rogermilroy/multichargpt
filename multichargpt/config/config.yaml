@@ -1,8 +1,10 @@
+# this is the default configuration if no overrides are specified.
 defaults:
   - data: shakespeare
   - model: gpt_small
   - optimizer: adamw
 
+# run specification - validation intervals and iterations, checkpointing and resuming.
 run:
   validate:
     validate_interval: 500
@@ -14,10 +16,14 @@ run:
 #  resume:
 #    path: outputs/2023-06-12/17-00-28/checkpoints/final.pt
 
-context_size: 128
-chunk_size: 2
+# shared contains parameters shared across model and data
+shared:
+  context_size: 128
+  chunk_size: 1  # only valid for chunked model_type.
 
-device: available # choice of available or directly set (cpu | cuda | mps)
+model_type: standard  # or standard    !! maybe move this into model? !!
+
+device: available # choice of available or set directly from torch options (see docs)
 save_final: True
 
 hydra:
