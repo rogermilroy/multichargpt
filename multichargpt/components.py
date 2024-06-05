@@ -183,10 +183,12 @@ class ChunkStackLinear(nn.Module):
 
     def __init__(self, in_features: int, out_features: int, chunk_size: int) -> None:
         super().__init__()
-        self.lins = [
-            nn.Linear(in_features=in_features, out_features=out_features)
-            for _ in range(chunk_size)
-        ]
+        self.lins = nn.ModuleList(
+            [
+                nn.Linear(in_features=in_features, out_features=out_features)
+                for _ in range(chunk_size)
+            ]
+        )
 
     def forward(self, x):
         # one option is n Linear and stack the outputs
