@@ -61,7 +61,9 @@ class BasicShakespeareDataset:
         self.train_data = encoded_data[
             : round(len(encoded_data) * (1 - val_proportion))
         ]
-        self.val_data = encoded_data[round(len(encoded_data) * val_proportion) + 1 :]
+        self.val_data = encoded_data[
+            round(len(encoded_data) * val_proportion) + 1 :
+        ]  # TODO check if 1 should be chunk_size
         self.chunk_size = chunk_size
 
     def get_batch(self, split: str) -> Tuple[Tensor, Tensor]:
@@ -74,21 +76,25 @@ class BasicShakespeareDataset:
         if split not in split_dataset_map.keys():
             raise ValueError("Options are 'train' or 'val'. Try again!")
         # select some random indices for batch starting points
+
         indices = torch.randint(
-            high=len(split_dataset_map[split]) - self.context_len,
+            high=len(split_dataset_map[split]) - (self.context_len + self.chunk_size),
             size=(self.batch_size,),
         )
         x = torch.stack(
             [split_dataset_map[split][idx : idx + self.context_len] for idx in indices]
         )
-        y = torch.stack(
-            [
-                split_dataset_map[split][
-                    idx + self.chunk_size : idx + self.context_len + self.chunk_size
-                ]
-                for idx in indices
-            ]
-        )
+        slices = list()
+        for i in range(1, self.chunk_size + 1):
+            slices.append(
+                torch.stack(
+                    [
+                        split_dataset_map[split][idx + i : idx + self.context_len + i]
+                        for idx in indices
+                    ]
+                )
+            )
+        y = torch.stack(slices, axis=-1).squeeze()  # type: ignore
         return x, y
 
 
@@ -96,7 +102,7 @@ if __name__ == "__main__":
     data_filename = os.path.join(project_base_dir, "data/input.txt")
     tokenizer = IndexTokenizer()
     context_len = 8
-    chunk_size = 2
+    chunk_size = 1
     batch_size = 4
     val_proportion = 0.1
 
