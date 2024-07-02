@@ -12,16 +12,19 @@ run:
   checkpoint:
     checkpoint_interval: 500
   iterations: 5000
-# if resuming from previous run.
-#  resume:
-#    path: outputs/2023-06-12/17-00-28/checkpoints/final.pt
+  sample:
+    sample_interval: 500
+    tokens: 100
+  # if resuming from previous run.
+  # resume:
+  #   path: ../outputs/2024-07-01/22-07-49/checkpoints/final.pt
 
 # shared contains parameters shared across model and data
 shared:
   context_size: 128
-  chunk_size: 1  # only valid for chunked model_type.
+  chunk_size: 2  # only valid for chunked model_type.
 
-model_type: standard  # or standard    !! maybe move this into model? !!
+model_type: chunked  # or standard    !! maybe move this into model? !!
 
 device: available # choice of available or set directly from torch options (see docs)
 save_final: True

@@ -7,8 +7,8 @@ from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig
 
 from multichargpt.dataset import BasicShakespeareDataset
-from multichargpt.hooks import Validate, Checkpoint
-from model import (
+from multichargpt.hooks import TextSample, Validate, Checkpoint
+from multichargpt.model import (
     TorchLanguageModel,
     TransformerFixedLookahead,
     TransformerMultiBlockLanguageModel,
@@ -126,9 +126,18 @@ def run_training(cfg: DictConfig):
     if cfg["run"]["checkpoint"]:
         os.makedirs(os.path.join(os.getcwd(), "checkpoints"), exist_ok=True)
         post_hooks.append(Checkpoint(**cfg["run"]["checkpoint"]))
+    if cfg["run"]["sample"]:
+        post_hooks.append(
+            TextSample(
+                **cfg["run"]["sample"],
+                device=device,
+                tokenizer=tok,
+                chunk_size=cfg["shared"]["chunk_size"],
+            )
+        )
 
     model.train()
-    trained_model, final_loss, losses = train_language_model(
+    trained_model, final_loss, losses, samples = train_language_model(
         model=model,
         dataset=dataset,
         optimizer=optimizer,
@@ -149,6 +158,8 @@ def run_training(cfg: DictConfig):
     for item in losses:
         logger.info(item)
     logger.info(f"Final Loss: {final_loss}")
+    for sample in samples:
+        logger.info(sample)
 
     #### After sample #####
     inputs = torch.zeros(

@@ -13,6 +13,7 @@ def train_language_model(
 ):
     loss = None
     losses = list()
+    samples = list()
     if post_hooks is None:
         post_hooks = list()
     for step in tqdm(range(iterations)):
@@ -35,6 +36,7 @@ def train_language_model(
                 logits=logits,
                 loss=loss,
                 losses=losses,
+                samples=samples,
             )
     assert loss  # assert loss is not None for type hints #nosec
-    return model, loss.item(), losses
+    return model, loss.item(), losses, samples

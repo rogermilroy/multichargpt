@@ -13,7 +13,7 @@ class Validate:
         self.eval_iters = eval_iters
         self.validate_interval = validate_interval
 
-    def __call__(self, step, model, dataset, optimizer, logits, loss, losses):
+    def __call__(self, step, model, dataset, losses, **kwargs):
         if step % self.validate_interval == 0:
             checkpoint_losses = self.eval_fn(
                 model=model, dataset=dataset, eval_iters=self.eval_iters
@@ -24,11 +24,34 @@ class Validate:
             )
 
 
+class TextSample:
+    def __init__(
+        self, sample_interval: int, tokens: int, device, tokenizer, chunk_size
+    ):
+        self.interval = sample_interval
+        self.device = device
+        self.tokenizer = tokenizer
+        self.tokens = tokens
+        self.chunk_size = chunk_size
+
+    def __call__(self, step, model, samples, **kwargs):
+        if step % self.interval == 0:
+            inputs = torch.zeros(
+                (1, self.chunk_size), dtype=torch.long, device=self.device
+            )
+            model.eval()
+            samples.append(
+                f"\n##### Step: {step} sample #####\n"
+                f"{self.tokenizer.decode(model.generate(inputs, generate_limit=self.tokens)[0])}"
+                f"\n#####"
+            )
+
+
 class Checkpoint:
     def __init__(self, checkpoint_interval):
         self.checkpoint_interval = checkpoint_interval
 
-    def __call__(self, step, model, dataset, optimizer, logits, loss, losses):
+    def __call__(self, step, model, optimizer, loss, **kwargs):
         if step % self.checkpoint_interval == 0:
             # create the checkpoint name - might want it to
             checkpoint_fname = os.path.join(
