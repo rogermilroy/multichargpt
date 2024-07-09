@@ -4,12 +4,12 @@ import os
 import hydra
 import torch
 from hydra.core.hydra_config import HydraConfig
+from torch.utils.data import DataLoader
 from omegaconf import DictConfig
 
-from multichargpt.dataset import BasicShakespeareDataset
+from multichargpt.dataset import ShakespeareDataset, SizedSubset, partition_dataset
 from multichargpt.hooks import TextSample, Validate, Checkpoint
 from multichargpt.model import (
-    TorchLanguageModel,
     TransformerFixedLookahead,
     TransformerMultiBlockLanguageModel,
 )
@@ -29,26 +29,6 @@ def available_device() -> str:
         return "cuda"
     else:
         return "cpu"
-
-
-@torch.no_grad()
-def evaluate_val(
-    model: TorchLanguageModel, dataset: BasicShakespeareDataset, eval_iters
-):
-    model.eval()
-
-    out = dict()
-    for split in ["train", "val"]:
-        losses = torch.zeros(eval_iters)
-        for i in range(eval_iters):
-            x, y = dataset.get_batch(split)
-            logits = model(x)
-            loss = model.loss(logits=logits, targets=y)
-            losses[i] = loss.item()
-        out[split] = losses.mean()
-
-    model.train()
-    return out
 
 
 @hydra.main(version_base=None, config_path="config", config_name="config")
@@ -73,13 +53,26 @@ def run_training(cfg: DictConfig):
     device = available_device() if cfg["device"] == "available" else cfg["device"]
     logger.info(f"Device: {device}")
 
-    dataset = BasicShakespeareDataset(
+    # TODO change to create dataset and dataloaders
+
+    base_dataset = ShakespeareDataset(
         filename=data_filename,
         tokenizer=tok,
         device=device,
         **cfg["shared"],
-        **cfg["data"],
     )
+
+    train, test = partition_dataset(
+        base_dataset, test_proportion=cfg["data"]["test_proportion"], **cfg["shared"]
+    )
+
+    train, val = partition_dataset(train, test_proportion=cfg["data"]["val_proportion"], **cfg["shared"])  # type: ignore
+
+    train_dataloader = DataLoader(train, **cfg["dataloading"])
+    val_dataloader = DataLoader(val, **cfg["dataloading"])
+    test_dataloader = DataLoader(test, **cfg["dataloading"])
+
+    sample_tokens = 200
 
     model = models[cfg["model_type"]](
         vocab_size=tok.vocab_size,
@@ -110,54 +103,68 @@ def run_training(cfg: DictConfig):
     model.eval()
     logger.info(
         f"\n##### Before #####\n"
-        f"{tok.decode(model.generate(inputs, generate_limit=200)[0])}"
+        f"{tok.decode(model.generate(inputs, tokens=sample_tokens)[0])}"
         f"\n##### Before #####"
     )
     #### Before sample #####
 
+    # TODO - extract hooks setup into a helper function?
     post_hooks = list()
-    if cfg["run"]["validate"]:
+    if cfg["hooks"]["validate"]:
         post_hooks.append(
             Validate(
-                eval_fn=evaluate_val,
-                **cfg["run"]["validate"],
+                dataloader=val_dataloader,
+                batch_size=cfg["dataloading"]["batch_size"],
+                **cfg["hooks"]["validate"],
+                **cfg["shared"],
             )
         )
-    if cfg["run"]["checkpoint"]:
-        os.makedirs(os.path.join(os.getcwd(), "checkpoints"), exist_ok=True)
-        post_hooks.append(Checkpoint(**cfg["run"]["checkpoint"]))
-    if cfg["run"]["sample"]:
+    if cfg["hooks"]["sample"]:
         post_hooks.append(
             TextSample(
-                **cfg["run"]["sample"],
+                **cfg["hooks"]["sample"],
                 device=device,
                 tokenizer=tok,
-                chunk_size=cfg["shared"]["chunk_size"],
+                batch_size=cfg["dataloading"]["batch_size"],
+                **cfg["shared"],
             )
         )
+    if cfg["hooks"]["checkpoint"]:
+        os.makedirs(os.path.join(os.getcwd(), "checkpoints"), exist_ok=True)
+        post_hooks.append(Checkpoint(**cfg["hooks"]["checkpoint"]))
 
     model.train()
-    trained_model, final_loss, losses, samples = train_language_model(
+    trained_model, final_loss, train_losses, val_losses, samples = train_language_model(
+        epochs=cfg["run"]["epochs"],
         model=model,
-        dataset=dataset,
         optimizer=optimizer,
+        train_dataloader=train_dataloader,
+        test_dataloader=test_dataloader,
         post_hooks=post_hooks,
-        iterations=cfg["run"]["iterations"],
     )
+    # save final model
     if cfg["save_final"]:
         torch.save(
             {
-                "step": cfg["run"]["iterations"],
+                "epoch": cfg["run"]["epochs"],
+                "minibatch": len(
+                    train_dataloader
+                ),  # TODO think more about this - sub integer epochs...
                 "model_state_dict": trained_model.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
                 "loss": final_loss,
             },
+            # TODO maybe change filename to match normal naming scheme?
             os.path.join(os.getcwd(), os.path.join("checkpoints", "final.pt")),
         )
 
-    for item in losses:
-        logger.info(item)
+    # TODO remove all this - when flushing losses directly in hooks
+    for train_loss in train_losses:
+        logger.info(train_loss)
+    # TODO change to test loss
     logger.info(f"Final Loss: {final_loss}")
+    for val_loss in val_losses:
+        logger.info(val_loss)
     for sample in samples:
         logger.info(sample)
 
@@ -168,7 +175,7 @@ def run_training(cfg: DictConfig):
     trained_model.eval()
     logger.info(
         f"\n##### After #####\n"
-        f"{tok.decode(trained_model.generate(inputs, generate_limit=200)[0])}"
+        f"{tok.decode(trained_model.generate(inputs, tokens=sample_tokens)[0])}"
         f"\n##### After #####"
     )
     #### After sample #####

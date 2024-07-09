@@ -1,23 +1,32 @@
 # this is the default configuration if no overrides are specified.
 defaults:
   - data: shakespeare
-  - model: gpt_small
+  - model: gpt_large
   - optimizer: adamw
 
 # run specification - validation intervals and iterations, checkpointing and resuming.
-run:
+# experiment - to test if I can override individual things in the base config.
+model.pos_embedding: sin_cos
+
+hooks:
   validate:
     validate_interval: 500
-    eval_iters: 50
   checkpoint:
     checkpoint_interval: 500
-  iterations: 5000
   sample:
     sample_interval: 500
     tokens: 100
-  # if resuming from previous run.
-  # resume:
-  #   path: ../outputs/2024-07-01/22-07-49/checkpoints/final.pt
+
+dataloading:
+  batch_size: 32
+  shuffle: True
+run:
+  # non integer epochs turns into some number of minibatches...
+  epochs: 1
+
+# if resuming from previous run.
+resume:
+  path: ../outputs/2024-07-04/16-46-52/checkpoints/final.pt
 
 # shared contains parameters shared across model and data
 shared:

@@ -47,8 +47,8 @@ class BigramLanguageModel(TorchLanguageModel):
         targets = targets.view(b * t)
         return F.cross_entropy(logits, targets)
 
-    def generate(self, x, generate_limit: int):
-        for _ in range(generate_limit):
+    def generate(self, x, tokens: int):
+        for _ in range(tokens):
             logits = self(x)  # logits (B, T, C) C is output options
 
             logits = logits[:, -1, :]  # select last time step from logits (B, 1, C)
@@ -89,7 +89,7 @@ class TransformerMultiBlockLanguageModel(TorchLanguageModel):
         :param vocab_size: dimension of the vocabulary
         :param embed_size: dimension of the token and position embeddings
         :param head_size: dimension of the attention head - usually computed from
-            embed_size and n_heads - embed_size // n_heads.
+            embed_size and n_heads. = embed_size // n_heads.
             Keeping separate for experimentation.
         :param hidden_size: dimension of the feedforward networks in the Attention
             blocks
@@ -150,8 +150,8 @@ class TransformerMultiBlockLanguageModel(TorchLanguageModel):
         targets = targets.view(b * t)
         return F.cross_entropy(logits, targets)
 
-    def generate(self, x, generate_limit: int):
-        for _ in range(generate_limit):
+    def generate(self, x, tokens: int):
+        for _ in range(tokens):
             # left trim x to be last n_context tokens
             x_trim = x[:, -self.context_size :]
 
@@ -186,7 +186,7 @@ class TransformerFixedLookahead(TorchLanguageModel):
         n_blocks: int,
         chunk_size: int,
         dropout: float,
-        chunk_method: str = "cat",
+        chunk_method: str = "stack",
         pos_embedding: str = "sin_cos",
     ):
         """
@@ -290,8 +290,9 @@ class TransformerFixedLookahead(TorchLanguageModel):
             )
         return F.cross_entropy(logits, targets)
 
-    def generate(self, x, generate_limit: int):
-        for _ in range(generate_limit):
+    def generate(self, x, tokens: int, chunked: bool = False):
+        divisor = self.chunk_size if chunked else 1
+        for _ in range(tokens // divisor):
             # left trim x to be last n_context tokens
             x_trim = x[:, -self.context_size :]
 
@@ -312,5 +313,8 @@ class TransformerFixedLookahead(TorchLanguageModel):
                 probs.squeeze(), num_samples=1  # TODO change this to chunk_size?
             )  # select one from probs (B, Ch, 1) TODO check it selects one per time step as needed
 
-            x = torch.cat((x, x_next.T), dim=1)  # (B, T + Ch, 1)
+            if chunked:
+                x = torch.cat((x, x_next.T), dim=1)  # (B, T + Ch, 1)
+            else:
+                x = torch.cat((x, x_next.T[:, :1]), dim=1)  # (B, T + Ch, 1)
         return x
