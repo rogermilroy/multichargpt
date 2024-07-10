@@ -1,7 +1,7 @@
 # this is the default configuration if no overrides are specified.
 defaults:
   - data: shakespeare
-  - model: gpt_large
+  - model: gpt_medium
   - optimizer: adamw
 
 # run specification - validation intervals and iterations, checkpointing and resuming.
@@ -24,9 +24,9 @@ run:
   # non integer epochs turns into some number of minibatches...
   epochs: 1
 
-# if resuming from previous run.
-resume:
-  path: ../outputs/2024-07-04/16-46-52/checkpoints/final.pt
+  # if resuming from previous run.
+  # resume:
+  #   path: ../outputs/2024-07-04/16-46-52/checkpoints/final.pt
 
 # shared contains parameters shared across model and data
 shared:
