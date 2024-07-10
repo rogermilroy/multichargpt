@@ -1,5 +1,5 @@
 import os
-from typing import Sized, Tuple
+from typing import Sized, Tuple, Sequence
 
 import torch
 from torch import Tensor
@@ -15,7 +15,7 @@ class SizedDataset(Dataset, Sized): ...
 
 class SizedSubset(Subset, Sized):
 
-    def __init__(self, dataset: Dataset, indices: os.Sequence[int]) -> None:  # type: ignore
+    def __init__(self, dataset: Dataset, indices: Sequence[int]) -> None:  # type: ignore
         super().__init__(dataset, indices)
         self._size = len(indices)
 
@@ -56,7 +56,7 @@ class ShakespeareDataset(SizedDataset):
             data = f.read()
         self.tokenizer.fit(data)
         encoded_data = torch.tensor(
-            self.tokenizer.encode(data), dtype=torch.long, device=device
+            self.tokenizer.encode(data), dtype=torch.long, device="cpu"
         )
         # here stack sections of context size
         self.x = torch.stack(
@@ -64,7 +64,8 @@ class ShakespeareDataset(SizedDataset):
                 encoded_data[idx : idx + context_size]
                 for idx in range(len(encoded_data) - context_size)
             ]
-        )
+        ).to(device=device)
+
         slices = list()
         for i in range(1, chunk_size + 1):
             slices.append(
@@ -75,7 +76,7 @@ class ShakespeareDataset(SizedDataset):
                     ]
                 )
             )
-        self.y = torch.stack(slices, axis=-1).squeeze()  # type: ignore
+        self.y = torch.stack(slices, axis=-1).squeeze().to(device=device)  # type: ignore
 
     def __len__(self) -> int:
         # TODO check this - I think I need to account for context size and chunk size

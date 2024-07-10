@@ -96,18 +96,6 @@ def run_training(cfg: DictConfig):
         logger.info("Starting from scratch")
         optimizer = torch.optim.AdamW(params=model.parameters(), **cfg["optimizer"])
 
-    #### Before sample #####
-    inputs = torch.zeros(
-        (1, cfg["shared"]["chunk_size"]), dtype=torch.long, device=device
-    )
-    model.eval()
-    logger.info(
-        f"\n##### Before #####\n"
-        f"{tok.decode(model.generate(inputs, tokens=sample_tokens)[0])}"
-        f"\n##### Before #####"
-    )
-    #### Before sample #####
-
     # TODO - extract hooks setup into a helper function?
     post_hooks = list()
     if cfg["hooks"]["validate"]:

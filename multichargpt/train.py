@@ -9,7 +9,6 @@ from multichargpt.hooks import evaluate_val
 
 
 # TODO set up params better to use config for experimentation
-# TODO change to use dataloader and epochs over iterations
 def train_language_model(
     epochs: float,
     model,
@@ -33,8 +32,10 @@ def train_language_model(
     else:
         minibatch_limit = math.inf
 
-    for epoch in tqdm(range(math.ceil(epochs))):
-        for i, minibatch in train_dataloader:
+    for epoch in tqdm(range(math.ceil(epochs)), desc="Epochs"):
+        for i, minibatch in tqdm(
+            enumerate(train_dataloader), desc="Minibatches", total=len(train_dataloader)
+        ):
             if i > minibatch_limit:
                 break
             x, y = minibatch

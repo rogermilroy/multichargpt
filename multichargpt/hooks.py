@@ -4,6 +4,7 @@ import os
 
 import torch
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from multichargpt.model import TorchLanguageModel
 
@@ -21,7 +22,7 @@ def evaluate_val(model: TorchLanguageModel, dataloader: DataLoader):
 
     losses = torch.zeros(len(dataloader))
     # TODO fix the train, val
-    for i, minibatch in dataloader:
+    for i, minibatch in enumerate(dataloader):
         x, y = minibatch
         logits = model(x)
         loss = model.loss(logits=logits, targets=y)
@@ -36,12 +37,11 @@ class Validate(Hook):
     def __init__(
         self,
         dataloader: DataLoader,
-        eval_iters: int,  # TODO remove this - just control the size of the dataloader
         validate_interval: int,
         context_size: int,
         batch_size: int,
+        **kwargs,
     ):
-        self.eval_iters = eval_iters
         self.validate_interval = validate_interval
         self.context_size = context_size
         self.batch_size = batch_size
@@ -58,12 +58,7 @@ class Validate(Hook):
 
 class TrainLoss(Hook):
     # accumulate training losses - average
-    def __init__(
-        self,
-        interval: int,
-        context_size: int,
-        batch_size: int,
-    ):
+    def __init__(self, interval: int, context_size: int, batch_size: int, **kwargs):
         # interval in minibatches
         self.train_loss_interval = interval
         self.losses = torch.zeros(self.train_loss_interval)
@@ -112,6 +107,7 @@ class TextSample(Hook):
                 f"{self.tokenizer.decode(model.generate(inputs, tokens=self.tokens)[0])}"
                 f"\n#####"
             )
+            model.train()
 
 
 class Checkpoint(Hook):
