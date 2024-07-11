@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Dict
 
 import torch
-from omegaconf import DictConfig, ListConfig, OmegaConf
+from omegaconf import DictConfig, OmegaConf
 
 from multichargpt.dataset import ShakespeareDataset
 from multichargpt.model import (
@@ -49,6 +49,8 @@ def setup_evaluation(checkpoint_dir: Path, checkpoint: str):
         f"{config['data']['data_dir']}/" f"{config['data']['data_filename']}",
     )
 
+    # TODO load tokenizer instead of initialising a dataset every time...
+    #   or maybe some other way to initialise a tokenizer?
     _ = ShakespeareDataset(
         filename=data_filename,
         tokenizer=tok,
