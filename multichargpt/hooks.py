@@ -1,11 +1,10 @@
 from abc import ABC
 import logging
 import os
-from typing import Callable, Dict
+from typing import Dict
 
 import torch
 from torch.utils.data import DataLoader
-from tqdm import tqdm
 
 from multichargpt.model import TorchLanguageModel
 

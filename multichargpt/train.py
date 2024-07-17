@@ -4,8 +4,7 @@ from torch.utils.data import DataLoader
 
 from tqdm import tqdm
 
-from multichargpt.hooks import Hook
-from multichargpt.hooks import validation_loss
+from multichargpt.hooks import Hook, validation_loss
 
 
 # TODO set up params better to use config for experimentation

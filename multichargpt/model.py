@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from torch import Tensor, nn
 from torch.nn import functional as F
 
-from .components import (
+from multichargpt.components import (
     ChunkCatLinear,
     ChunkStackLinear,
     TransformerBlock,
