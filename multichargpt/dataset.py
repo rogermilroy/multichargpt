@@ -28,7 +28,7 @@ def partition_dataset(
     test_proportion: float,
     context_size: int,
     chunk_size: int,
-) -> Tuple[Subset, Subset]:
+) -> Tuple[SizedSubset, SizedSubset]:
 
     train = SizedSubset(
         dataset,
