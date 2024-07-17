@@ -2,4 +2,4 @@ data_dir: data
 data_filename: input.txt
 
 val_proportion: 0.01  # this is 300 iterations (with batch size 32)
-test_proportion: 0.1  # this is 3000 iterations (with batch size 32)
+test_proportion: 0.01  # this is 3000 iterations (with batch size 32)

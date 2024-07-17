@@ -50,7 +50,6 @@ class ShakespeareDataset(SizedDataset):
         device: str | torch.device = "cpu",
         chunk_size: int = 1,
     ):
-        # NOTE this loads everything into memory - if too big load in __getitem__
         self.tokenizer = tokenizer
         with open(filename, "r", encoding="utf8") as f:
             data = f.read()
@@ -58,11 +57,11 @@ class ShakespeareDataset(SizedDataset):
         encoded_data = torch.tensor(
             self.tokenizer.encode(data), dtype=torch.long, device="cpu"
         )
-        # here stack sections of context size
+        # here stack sections of context size TODO find more efficient way to do this.
         self.x = torch.stack(
             [
                 encoded_data[idx : idx + context_size]
-                for idx in range(len(encoded_data) - context_size)
+                for idx in range(len(encoded_data) - context_size - chunk_size)
             ]
         ).to(device=device)
 
@@ -79,7 +78,6 @@ class ShakespeareDataset(SizedDataset):
         self.y = torch.stack(slices, axis=-1).squeeze().to(device=device)  # type: ignore
 
     def __len__(self) -> int:
-        # TODO check this - I think I need to account for context size and chunk size
         return len(self.x)
 
     def __getitem__(self, index) -> Tuple[Tensor, Tensor]:

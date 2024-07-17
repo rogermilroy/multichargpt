@@ -1,3 +1,4 @@
+from collections import defaultdict
 import logging
 import os
 
@@ -7,8 +8,13 @@ from hydra.core.hydra_config import HydraConfig
 from torch.utils.data import DataLoader
 from omegaconf import DictConfig
 
-from multichargpt.dataset import ShakespeareDataset, SizedSubset, partition_dataset
-from multichargpt.hooks import TextSample, Validate, Checkpoint
+from multichargpt.dataset import ShakespeareDataset, partition_dataset
+from multichargpt.hooks import (
+    TextSample,
+    TrainingMetric,
+    Checkpoint,
+    ValidationMetric,
+)
 from multichargpt.model import (
     TransformerFixedLookahead,
     TransformerMultiBlockLanguageModel,
@@ -98,22 +104,30 @@ def run_training(cfg: DictConfig):
 
     # TODO - extract hooks setup into a helper function?
     post_hooks = list()
+    metrics_dict = defaultdict(dict)
+    samples = dict()
     if cfg["hooks"]["validate"]:
         post_hooks.append(
-            Validate(
+            ValidationMetric(
+                metrics_dict=metrics_dict,
                 dataloader=val_dataloader,
-                batch_size=cfg["dataloading"]["batch_size"],
-                **cfg["hooks"]["validate"],
-                **cfg["shared"],
+                interval=cfg["hooks"]["validate"]["interval"],
+            )
+        )
+        post_hooks.append(
+            TrainingMetric(
+                metrics_dict=metrics_dict,
+                interval=cfg["hooks"]["validate"]["interval"],
+                dataloader=val_dataloader,
             )
         )
     if cfg["hooks"]["sample"]:
         post_hooks.append(
             TextSample(
-                **cfg["hooks"]["sample"],
+                samples=samples,
                 device=device,
                 tokenizer=tok,
-                batch_size=cfg["dataloading"]["batch_size"],
+                **cfg["hooks"]["sample"],
                 **cfg["shared"],
             )
         )
@@ -122,7 +136,7 @@ def run_training(cfg: DictConfig):
         post_hooks.append(Checkpoint(**cfg["hooks"]["checkpoint"]))
 
     model.train()
-    trained_model, final_loss, train_losses, val_losses, samples = train_language_model(
+    trained_model, test_loss = train_language_model(
         epochs=cfg["run"]["epochs"],
         model=model,
         optimizer=optimizer,
@@ -140,21 +154,45 @@ def run_training(cfg: DictConfig):
                 ),  # TODO think more about this - sub integer epochs...
                 "model_state_dict": trained_model.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
-                "loss": final_loss,
+                "test_loss": test_loss,
             },
             # TODO maybe change filename to match normal naming scheme?
             os.path.join(os.getcwd(), os.path.join("checkpoints", "final.pt")),
         )
 
     # TODO remove all this - when flushing losses directly in hooks
-    for train_loss in train_losses:
-        logger.info(train_loss)
-    # TODO change to test loss
-    logger.info(f"Final Loss: {final_loss}")
-    for val_loss in val_losses:
-        logger.info(val_loss)
-    for sample in samples:
-        logger.info(sample)
+
+    ### process the metrics in the metrics dict. Output them
+    metric_pretty_pre = {
+        "training_loss": "Training Loss:",
+        "validation_loss": "Validation Loss:",
+    }
+    metric_pretty_post = {
+        "training_loss": " | ",
+        "validation_loss": " | ",
+    }
+    # TODO fix cumulative tokens.
+    for key, metrics_values in metrics_dict.items():
+        epoch, minibatch = key
+        output = []
+        output.append(
+            f"Epoch: {epoch} Minibatch: {minibatch} Cumulative Tokens: {minibatch * cfg['shared']['context_size'] * cfg['dataloading']['batch_size']} | "
+        )
+        for metric, value in metrics_values.items():
+            output.append(
+                f"{metric_pretty_pre[metric]} {value:.4f} {metric_pretty_post[metric]}"
+            )
+        logger.info("".join(output))
+
+    # TODO simplify this more?
+    for key, sample in samples.items():
+        epoch, minibatch = key
+        output = []
+        output.append(
+            f"Epoch: {epoch} Minibatch: {minibatch} Cumulative Tokens: {minibatch * cfg['shared']['context_size'] * cfg['dataloading']['batch_size']}\n"
+        )
+        output.append(f"### Sample ###\n{sample}\n### End Sample ###")
+        logger.info("".join(output))
 
     #### After sample #####
     inputs = torch.zeros(

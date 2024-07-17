@@ -1,11 +1,11 @@
 import math
-from typing import Optional, Callable, List
+from typing import Optional, List
 from torch.utils.data import DataLoader
 
 from tqdm import tqdm
 
 from multichargpt.hooks import Hook
-from multichargpt.hooks import evaluate_val
+from multichargpt.hooks import validation_loss
 
 
 # TODO set up params better to use config for experimentation
@@ -18,23 +18,26 @@ def train_language_model(
     post_hooks: Optional[List[Hook]] = None,
 ):
     loss = None
-    val_losses = list()
-    train_losses = list()
-    samples = list()
     if post_hooks is None:
         post_hooks = list()
 
     # do some processing to allow sub epoch runs (ie. half a dataset = 0.5)
     minibatch_limit = None
     if 0 < epochs < 1:
-        minibatch_limit = len(train_dataloader) * epochs
+        minibatch_limit = int(len(train_dataloader) * epochs)
         # TODO add printout for minibatch limit if it's set here.
     else:
         minibatch_limit = math.inf
 
     for epoch in tqdm(range(math.ceil(epochs)), desc="Epochs"):
         for i, minibatch in tqdm(
-            enumerate(train_dataloader), desc="Minibatches", total=len(train_dataloader)
+            enumerate(train_dataloader),
+            desc="Minibatches",
+            total=(
+                len(train_dataloader)
+                if minibatch_limit == math.inf
+                else minibatch_limit
+            ),
         ):
             if i > minibatch_limit:
                 break
@@ -48,7 +51,7 @@ def train_language_model(
             optimizer.step()
 
             for hook in post_hooks:
-                # TODO improve this to be less restrictive
+                # TODO improve this to be less restrictive - ie. passing in less stuff..
                 hook(
                     epoch=epoch,
                     minibatch=i,
@@ -56,11 +59,11 @@ def train_language_model(
                     optimizer=optimizer,
                     logits=logits,
                     loss=loss,
-                    train_losses=train_losses,
-                    val_losses=val_losses,
-                    samples=samples,
                 )
     # test loss is the mean loss over the whole test dataset
-    test_loss = evaluate_val(model=model, dataloader=test_dataloader)
+    test_loss = validation_loss(model=model, dataloader=test_dataloader)
 
-    return model, test_loss, train_losses, val_losses, samples
+    return (
+        model,
+        test_loss,
+    )

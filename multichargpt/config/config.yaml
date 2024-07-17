@@ -10,11 +10,13 @@ model.pos_embedding: sin_cos
 
 hooks:
   validate:
-    validate_interval: 500
+    interval: 500
+  train_loss:
+    interval: 500
   checkpoint:
-    checkpoint_interval: 500
+    interval: 500
   sample:
-    sample_interval: 500
+    interval: 500
     tokens: 100
 
 dataloading:
@@ -22,7 +24,7 @@ dataloading:
   shuffle: True
 run:
   # non integer epochs turns into some number of minibatches...
-  epochs: 1
+  epochs: 0.02
 
   # if resuming from previous run.
   # resume:
